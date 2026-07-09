@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고은성 관극 아카이브</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-btn.active { border-bottom: 2px solid #f59e0b; color: #fbbf24; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+
+    <header class="bg-slate-800 p-6 shadow-lg">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold text-amber-500 mb-4">고은성 관극 아카이브</h1>
+            <nav class="flex gap-6">
+                <button onclick="showTab('dashboard')" class="tab-btn active font-semibold pb-1">대시보드</button>
+                <button onclick="showTab('list')" class="tab-btn font-semibold pb-1">관극 기록</button>
+                <button onclick="showTab('schedule')" class="tab-btn font-semibold pb-1">배우 스케줄</button>
+                <button onclick="showTab('seats')" class="tab-btn font-semibold pb-1">좌석 배치</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-4 md:p-8">
+
+        <div id="dashboard" class="tab-content active space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                    <p class="text-slate-400">총 관극 횟수</p>
+                    <h2 id="totalCount" class="text-4xl font-bold text-amber-500">0회</h2>
+                </div>
+                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                    <p class="text-slate-400">가장 많이 본 작품</p>
+                    <h2 id="favWork" class="text-2xl font-bold text-white mt-2">-</h2>
+                </div>
+            </div>
+        </div>
+
+        <div id="list" class="tab-content space-y-6">
+            <div class="bg-slate-800 p-6 rounded-xl shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">새 기록 추가</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <select id="workSelect" class="bg-slate-700 p-2 rounded text-white w-full">
+                        <option value="베르사유의 장미">베르사유의 장미</option>
+                        <option value="몬테크리스토">몬테크리스토</option>
+                        <option value="데스노트">데스노트</option>
+                        <option value="그레이트 코멧">그레이트 코멧</option>
+                    </select>
+                    <input type="date" id="dateInput" class="bg-slate-700 p-2 rounded w-full">
+                    <input type="text" id="seatInput" placeholder="좌석 정보 (예: A열 5번)" class="bg-slate-700 p-2 rounded w-full">
+                    <input type="text" id="commentInput" placeholder="한 줄 감상" class="bg-slate-700 p-2 rounded w-full">
+                </div>
+                <button onclick="saveRecord()" class="mt-4 bg-amber-600 hover:bg-amber-500 w-full py-2 rounded font-bold transition">기록 저장</button>
+            </div>
+            <div id="recordList" class="space-y-4"></div>
+        </div>
+
+        <div id="schedule" class="tab-content">
+            <div class="bg-slate-800 p-6 rounded-xl">
+                <h2 class="text-xl font-semibold mb-4">공연 스케줄 (예시)</h2>
+                <ul class="space-y-3" id="scheduleList">
+                    <!-- 일정 데이터 -->
+                </ul>
+            </div>
+        </div>
+
+        <div id="seats" class="tab-content">
+            <div class="bg-slate-800 p-6 rounded-xl text-center">
+                <h2 class="text-xl font-semibold mb-6">극장 좌석 배치도 (Concept)</h2>
+                <div class="grid grid-cols-8 gap-2 max-w-md mx-auto">
+                    <!-- 좌석 시뮬레이션 -->
+                    <script>
+                        for(let i=0; i<32; i++) {
+                            document.write(`<div class="w-full aspect-square bg-slate-700 rounded hover:bg-amber-500 cursor-pointer flex items-center justify-center text-[10px]">${i+1}</div>`);
+                        }
+                    </script>
+                </div>
+                <p class="mt-6 text-slate-400 text-sm italic">좌석을 선택하여 정보를 확인할 수 있습니다.</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let records = JSON.parse(localStorage.getItem('es_records')) || [];
+
+        // 일정 데이터
+        const scheduleData = [
+            { date: '2026-07-15', work: '베르사유의 장미', place: '충무아트센터' },
+            { date: '2026-07-20', work: '베르사유의 장미', place: '충무아트센터' },
+            { date: '2026-08-05', work: '차기작 준비', place: '-' }
+        ];
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function renderAll() {
+            renderRecords();
+            renderDashboard();
+            renderSchedule();
+        }
+
+        function renderDashboard() {
+            document.getElementById('totalCount').innerText = `${records.length}회`;
+            const counts = {};
+            records.forEach(r => counts[r.work] = (counts[r.work] || 0) + 1);
+            const fav = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, '-');
+            document.getElementById('favWork').innerText = fav;
+        }
+
+        function renderSchedule() {
+            const list = document.getElementById('scheduleList');
+            list.innerHTML = scheduleData.map(s => `
+                <li class="flex justify-between bg-slate-700 p-3 rounded">
+                    <span>${s.date} - ${s.work}</span>
+                    <span class="text-amber-400">${s.place}</span>
+                </li>
+            `).join('');
+        }
+
+        function renderRecords() {
+            const list = document.getElementById('recordList');
+            list.innerHTML = records.map((r, index) => `
+                <div class="bg-slate-800 p-4 rounded-lg flex justify-between items-center border-l-4 border-amber-500">
+                    <div>
+                        <h3 class="font-bold text-lg">${r.work}</h3>
+                        <p class="text-sm text-slate-400">${r.date} | ${r.seat}</p>
+                        <p class="mt-1 italic">"${r.comment}"</p>
+                    </div>
+                    <button onclick="deleteRecord(${index})" class="text-red-400 hover:text-red-300">삭제</button>
+                </div>
+            `).join('');
+        }
+
+        function saveRecord() {
+            const work = document.getElementById('workSelect').value;
+            const date = document.getElementById('dateInput').value;
+            const seat = document.getElementById('seatInput').value;
+            const comment = document.getElementById('commentInput').value;
+
+            if(!date || !seat) {
+                console.log("날짜와 좌석을 입력해주세요!");
+                return;
+            }
+
+            records.push({ work, date, seat, comment });
+            localStorage.setItem('es_records', JSON.stringify(records));
+            renderAll();
+        }
+
+        function deleteRecord(index) {
+            records.splice(index, 1);
+            localStorage.setItem('es_records', JSON.stringify(records));
+            renderAll();
+        }
+
+        // 초기 실행
+        renderAll();
+    </script>
+</body>
+</html>
