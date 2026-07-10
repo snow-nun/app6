@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>강원 컬처맵 - 데이터 기반 지역 문화공간 활성화</title>
+    
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS & JS (Map) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts (Pretendard) -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+    
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+        }
+        
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1.25rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(135deg, #38bdf8, #34d399);
+        }
+
+        /* Leaflet Customization for Map */
+        #map {
+            height: 480px;
+            border-radius: 1rem;
+            z-index: 10;
+        }
+        /* 마커 클릭 시 나타나는 팝업창은 다크 테마 유지 */
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background-color: #1e293b;
+            color: #f8fafc;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .leaflet-container a.leaflet-popup-close-button {
+            color: #94a3b8;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-sky-500 selection:text-white">
+
+    <!-- GNB (Global Navigation Bar) -->
+    <nav class="fixed w-full z-50 top-0 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- 로고 영역 클릭 시 최상단으로 -->
+                <a href="#" class="flex items-center gap-3 cursor-pointer">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/20">
+                        <i class="fa-solid fa-layer-group text-white text-sm"></i>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight text-white">강원 컬처맵</span>
+                </a>
+                <div class="hidden md:block">
+                    <div class="flex items-baseline space-x-2">
+                        <!-- JS 이벤트 대신 HTML 앵커(a) 태그 활용하여 버그 해결 및 부드러운 스크롤 적용 -->
+                        <a href="#dashboard" class="bg-white/10 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/20">대시보드</a>
+                        <a href="#map-section" class="text-slate-400 hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">공간발굴</a>
+                        <a href="#stats-section" class="text-slate-400 hover:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">안전/통계</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="pt-28 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8">
+        
+        <!-- Section 1: Hero -->
+        <div class="text-center py-6 md:py-10">
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-6">
+                방치된 공간을 <span class="text-gradient">데이터로 다시 읽고,</span><br/>
+                문화의 언어로 다시 짓는다.
+            </h1>
+            <p class="text-slate-400 text-lg md:text-xl max-w-3xl mx-auto font-light">
+                문체부, 국토부, 가스안전공사 등 공공데이터 6종을 융합하여<br class="hidden md:block"/>
+                강원도 내 유휴 공간에 안전등급과 문화 활용 적합도를 부여합니다.
+            </p>
+        </div>
+
+        <!-- Section 2: KPI Dashboard -->
+        <!-- scroll-mt-24: 상단 네비게이션 바 높이만큼 여백을 주어 앵커 이동 시 제목이 가려지지 않음 -->
+        <div id="dashboard" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 scroll-mt-24">
+            <div class="glass-panel p-6 flex flex-col justify-center relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <i class="fa-solid fa-database text-4xl text-sky-400"></i>
+                </div>
+                <p class="text-slate-400 text-sm font-medium mb-1 z-10">통합 데이터 소스</p>
+                <div class="flex items-baseline gap-2 z-10">
+                    <h2 class="text-4xl font-bold text-white">6<span class="text-lg font-normal text-slate-400 ml-1">종</span></h2>
+                </div>
+                <p class="text-xs text-slate-500 mt-2 z-10">가스안전, 건축노후도, 공연장 등</p>
+            </div>
+            
+            <div class="glass-panel p-6 flex flex-col justify-center relative overflow-hidden group border-b-4 border-sky-400/50">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <i class="fa-solid fa-building text-4xl text-sky-400"></i>
+                </div>
+                <p class="text-slate-400 text-sm font-medium mb-1 z-10">발굴된 유휴공간</p>
+                <div class="flex items-baseline gap-2 z-10">
+                    <h2 class="text-4xl font-bold text-white">534<span class="text-lg font-normal text-slate-400 ml-1">개</span></h2>
+                </div>
+                <p class="text-xs text-sky-400 mt-2 z-10 font-medium"><i class="fa-solid fa-arrow-trend-up mr-1"></i>폐광, 산단 부지 포함</p>
+            </div>
+
+            <div class="glass-panel p-6 flex flex-col justify-center relative overflow-hidden group border-b-4 border-emerald-400/50">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <i class="fa-solid fa-check-circle text-4xl text-emerald-400"></i>
+                </div>
+                <p class="text-slate-400 text-sm font-medium mb-1 z-10">안전등급 <span class="text-emerald-400 font-bold">S</span> (즉시활용)</p>
+                <div class="flex items-baseline gap-2 z-10">
+                    <h2 class="text-4xl font-bold text-white">120<span class="text-lg font-normal text-slate-400 ml-1">개</span></h2>
+                </div>
+                <p class="text-xs text-emerald-400 mt-2 z-10 font-medium">안전 및 구조 검증 완료</p>
+            </div>
+
+            <div class="glass-panel p-6 flex flex-col justify-center relative overflow-hidden group border-b-4 border-amber-400/50">
+                <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <i class="fa-solid fa-triangle-exclamation text-4xl text-amber-400"></i>
+                </div>
+                <p class="text-slate-400 text-sm font-medium mb-1 z-10">안전등급 <span class="text-amber-400 font-bold">A</span> (보수필요)</p>
+                <div class="flex items-baseline gap-2 z-10">
+                    <h2 class="text-4xl font-bold text-white">280<span class="text-lg font-normal text-slate-400 ml-1">개</span></h2>
+                </div>
+                <p class="text-xs text-amber-400 mt-2 z-10 font-medium">1~2개 항목 보수 시 개관 가능</p>
+            </div>
+        </div>
+
+        <!-- Section 3: GIS Map & AI Recommendation -->
+        <div id="map-section" class="grid grid-cols-1 lg:grid-cols-3 gap-6 scroll-mt-24">
+            <!-- Map (Leaflet) -->
+            <div class="lg:col-span-2 glass-panel p-1 flex flex-col">
+                <div class="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/5 gap-4">
+                    <h3 class="font-bold text-lg text-white flex items-center">
+                        <i class="fa-solid fa-map-location-dot text-sky-400 mr-2"></i>
+                        공간 분포 및 안전등급 지도
+                    </h3>
+                    <div class="flex gap-2 text-xs">
+                        <span class="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded border border-slate-700 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> S등급
+                        </span>
+                        <span class="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded border border-slate-700 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span> A등급
+                        </span>
+                        <span class="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded border border-slate-700 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-red-400"></span> B등급
+                        </span>
+                    </div>
+                </div>
+                <div id="map" class="w-full flex-grow rounded-b-[1.1rem]"></div>
+            </div>
+
+            <!-- AI Recommendation Sidebar -->
+            <div class="glass-panel p-6 flex flex-col h-full">
+                <h3 class="font-bold text-lg text-white mb-6 flex items-center">
+                    <div class="w-8 h-8 rounded bg-indigo-500/20 text-indigo-400 flex items-center justify-center mr-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    AI 기획자 공간 매칭
+                </h3>
+                
+                <div class="space-y-6 mb-8 flex-grow">
+                    <!-- Filters -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-3">희망 문화 장르 (다중선택)</label>
+                        <div class="flex flex-wrap gap-2" id="genre-tags">
+                            <button class="px-3 py-1.5 bg-sky-500 text-white text-sm rounded-full border border-sky-400 transition-colors">#XR/미디어아트</button>
+                            <button class="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm rounded-full border border-slate-600 transition-colors">#전시/팝업</button>
+                            <button class="px-3 py-1.5 bg-sky-500 text-white text-sm rounded-full border border-sky-400 transition-colors">#로컬푸드</button>
+                            <button class="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm rounded-full border border-slate-600 transition-colors">#도자기/공방</button>
+                            <button class="px-3 py-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm rounded-full border border-slate-600 transition-colors">#소규모공연</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-300 mb-3">필요 면적 (㎡)</label>
+                        <input type="range" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" min="50" max="1000" value="350">
+                        <div class="flex justify-between text-xs text-slate-500 mt-2 font-medium">
+                            <span>50㎡</span>
+                            <span class="text-sky-400">350㎡ (선택)</span>
+                            <span>1000㎡+</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto space-y-4">
+                    <button id="btn-match" class="w-full py-3.5 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold rounded-xl transition-all shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass"></i> 최적 공간 분석하기
+                    </button>
+
+                    <!-- Match Result (Hidden by default) -->
+                    <div id="ai-result" class="p-4 bg-slate-800/80 rounded-xl border border-emerald-500/30 hidden opacity-0 transition-opacity duration-500">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <span class="inline-block px-2 py-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded mb-2">안전등급 S</span>
+                                <h4 class="font-bold text-lg text-white leading-tight" id="result-title">태백 장성폐광 유휴부지</h4>
+                                <p class="text-xs text-slate-400 mt-1" id="result-type">폐광 / 420㎡</p>
+                            </div>
+                            <div class="text-right bg-slate-900/50 px-2 py-1.5 rounded-lg border border-white/5">
+                                <span class="block text-[10px] text-slate-400 mb-0.5">매칭률</span>
+                                <div class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-sky-400">94%</div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-slate-300 leading-relaxed bg-slate-900/40 p-3 rounded-lg text-left" id="result-desc">
+                            가스 및 건축 안전진단 통과 이력 보유. 층고가 6m 이상으로 높아 <strong>XR 미디어아트</strong> 및 <strong>로컬 팝업스토어</strong> 구축에 최적화된 공간입니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Data Visualization -->
+        <div id="stats-section" class="grid grid-cols-1 lg:grid-cols-2 gap-6 scroll-mt-24">
+            <!-- Chart 1: Venue Distribution -->
+            <div class="glass-panel p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-white text-lg">
+                        강원도 시군별 문화공간 편중도
+                    </h3>
+                    <span class="text-xs text-slate-400 px-2 py-1 bg-slate-800 rounded border border-white/5">문체부 API 연동</span>
+                </div>
+                <div class="h-64 w-full relative">
+                    <canvas id="venueChart"></canvas>
+                </div>
+                <p class="text-xs text-slate-500 mt-4 flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5"></i>
+                    춘천, 원주 등 주요 도시에 문화 인프라가 편중되어 있어, 태백/정선 등 소외지역의 유휴공간 발굴 가치가 높습니다.
+                </p>
+            </div>
+            
+            <!-- Chart 2: Safety Hazards -->
+            <div class="glass-panel p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-white text-lg">
+                        공간 안전리스크 주요 부적합 유형
+                    </h3>
+                    <span class="text-xs text-slate-400 px-2 py-1 bg-slate-800 rounded border border-white/5">가스안전공사 공공데이터</span>
+                </div>
+                <div class="h-64 w-full relative flex items-center justify-center">
+                    <canvas id="safetyChart"></canvas>
+                </div>
+                <p class="text-xs text-slate-500 mt-4 flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5"></i>
+                    가스누출경보기 미설치(26.1%)가 가장 높은 위험 요소로 도출되었습니다. 등급 산정 알고리즘의 주요 가중치로 작용합니다.
+                </p>
+            </div>
+        </div>
+        
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/5 mt-8 bg-slate-900/50 text-slate-400 py-10">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <div class="flex justify-center items-center gap-4 mb-4 text-xl">
+                <i class="fa-solid fa-chart-line hover:text-white transition-colors cursor-pointer"></i>
+                <i class="fa-solid fa-shield-halved hover:text-white transition-colors cursor-pointer"></i>
+                <i class="fa-brands fa-github hover:text-white transition-colors cursor-pointer"></i>
+            </div>
+            <p class="text-sm">&copy; 2026 강원 컬처맵 프로젝트. 산업통상자원부 공공데이터 활용 공모전 출품작.</p>
+            <p class="text-xs mt-2 text-slate-500">HTML5 / Vanilla JS / Tailwind / Leaflet / Chart.js 기반 SPA 데모</p>
+        </div>
+    </footer>
+
+    <!-- Application Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // --- 1. Leaflet Map Initialization ---
+            // Center map on Gangwon-do
+            const map = L.map('map', {
+                zoomControl: false // Custom position for zoom control
+            }).setView([37.75, 128.8], 8);
+            
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            // 가시성이 좋고 밝은 테마인 Positron 맵 사용 (어둡게 만드는 CSS 필터 완전히 제거)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+
+            // Mock Data Based on Context (PPT/CSV)
+            const locations = [
+                { id: 1, lat: 37.1744, lng: 129.0093, name: "태백 장성폐광 유휴부지", type: "폐광", size: "420㎡", grade: "S", desc: "안전진단 통과. 높은 층고로 XR 미디어아트 적합." },
+                { id: 2, lat: 37.3514, lng: 128.9876, name: "정선 동원탄좌", type: "폐광", size: "850㎡", grade: "A", desc: "가스 배관 일부 보수 요망. 전시 공간 구성 가능." },
+                { id: 3, lat: 37.7556, lng: 128.8961, name: "강릉 명주예술마당", type: "기존공연장", size: "300㎡", grade: "S", desc: "즉시 활용 가능. 도자기 공방 및 소규모 팝업 연계 우수." },
+                { id: 4, lat: 37.8813, lng: 127.7300, name: "춘천 후평산업단지 유휴창고", type: "산업단지", size: "1200㎡", grade: "B", desc: "구조안전 재검토 필요. 현재 IoT 모니터링 중." },
+                { id: 5, lat: 37.3422, lng: 127.9202, name: "원주 반곡동 구 역사", type: "유휴공간", size: "250㎡", grade: "A", desc: "접근성 양호. 경보기 설치 시 즉시 개관 가능." },
+                { id: 6, lat: 37.1850, lng: 128.4650, name: "영월 구 마차리 폐광 시설", type: "폐광", size: "550㎡", grade: "S", desc: "구조안전 S등급. 로컬푸드 마켓 및 복합 문화공간 추천." },
+                { id: 7, lat: 37.5450, lng: 129.1150, name: "동해 북평공단 유휴지", type: "산업단지", size: "600㎡", grade: "B", desc: "노후화 심각. 리모델링 예산 다수 소요 예상." }
+            ];
+
+            // Icon color generator based on Safety Grade
+            const getIconColor = (grade) => {
+                if(grade === 'S') return '#10b981'; // Emerald 500 (밝은 맵에서 눈에 띄게 진하게)
+                if(grade === 'A') return '#f59e0b'; // Amber 500
+                return '#ef4444'; // Red 500
+            };
+
+            // Add markers
+            locations.forEach(loc => {
+                const marker = L.circleMarker([loc.lat, loc.lng], {
+                    radius: 9, // 마커 크기 최적화
+                    fillColor: getIconColor(loc.grade),
+                    color: "#ffffff", // 테두리 색상
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.95,
+                    className: 'cursor-pointer shadow-md' // 그림자 효과 클래스 추가
+                }).addTo(map);
+
+                // Popup HTML
+                const popupContent = `
+                    <div class="font-sans min-w-[180px]">
+                        <div class="flex items-center gap-2 mb-1 border-b border-slate-700 pb-2">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${loc.grade === 'S' ? 'bg-emerald-500/20 text-emerald-400' : loc.grade === 'A' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}">
+                                ${loc.grade}등급
+                            </span>
+                            <strong class="text-sm text-white">${loc.name}</strong>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2">
+                            <span><i class="fa-solid fa-tag mr-1"></i>${loc.type}</span>
+                            <span class="ml-2"><i class="fa-regular fa-square mr-1"></i>${loc.size}</span>
+                        </div>
+                        <button class="mt-3 w-full py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs text-white transition-colors" onclick="selectLocation(${loc.id})">
+                            상세 분석 보기
+                        </button>
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+
+                // Click event to link map to sidebar
+                marker.on('click', () => {
+                    updateAiResult(loc);
+                });
+            });
+
+            // --- 2. AI Match Logic ---
+            const btnMatch = document.getElementById('btn-match');
+            const aiResult = document.getElementById('ai-result');
+            
+            // Tag toggling logic
+            const tags = document.querySelectorAll('#genre-tags button');
+            tags.forEach(tag => {
+                tag.addEventListener('click', function() {
+                    this.classList.toggle('bg-sky-500');
+                    this.classList.toggle('text-white');
+                    this.classList.toggle('border-sky-400');
+                    this.classList.toggle('bg-slate-800');
+                    this.classList.toggle('text-slate-300');
+                    this.classList.toggle('border-slate-600');
+                });
+            });
+
+            // Function to update AI Result card
+            window.selectLocation = function(id) {
+                const loc = locations.find(l => l.id === id);
+                if(loc) updateAiResult(loc);
+                map.closePopup();
+            }
+
+            function updateAiResult(loc) {
+                // Determine grade styling
+                let gradeClass = "bg-emerald-400/10 text-emerald-400 border-emerald-400/20";
+                let matchRate = Math.floor(Math.random() * (98 - 85 + 1)) + 85; // 85~98%
+                
+                if(loc.grade === 'A') {
+                    gradeClass = "bg-amber-400/10 text-amber-400 border-amber-400/20";
+                    matchRate = Math.floor(Math.random() * (84 - 70 + 1)) + 70;
+                } else if(loc.grade === 'B') {
+                    gradeClass = "bg-red-400/10 text-red-400 border-red-400/20";
+                    matchRate = Math.floor(Math.random() * (60 - 30 + 1)) + 30;
+                }
+
+                // Update DOM
+                const gradeSpan = aiResult.querySelector('span');
+                gradeSpan.className = `inline-block px-2 py-1 text-[10px] font-bold border rounded mb-2 ${gradeClass}`;
+                gradeSpan.textContent = `안전등급 ${loc.grade}`;
+                
+                document.getElementById('result-title').textContent = loc.name;
+                document.getElementById('result-type').textContent = `${loc.type} / ${loc.size}`;
+                aiResult.querySelector('.text-xl').textContent = `${matchRate}%`;
+                
+                // Highlight keywords in description based on selected tags (Mock logic)
+                document.getElementById('result-desc').innerHTML = loc.desc;
+
+                // Show with animation
+                aiResult.classList.remove('hidden');
+                setTimeout(() => aiResult.classList.remove('opacity-0'), 10);
+            }
+
+            // Analysis Button Click (Picks a random S or A grade location)
+            btnMatch.addEventListener('click', () => {
+                // Simulate loading state
+                const originalText = btnMatch.innerHTML;
+                btnMatch.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 분석 중...`;
+                btnMatch.classList.add('opacity-80');
+                aiResult.classList.add('opacity-0');
+                
+                setTimeout(() => {
+                    const bestLocations = locations.filter(l => l.grade !== 'B');
+                    const randomLoc = bestLocations[Math.floor(Math.random() * bestLocations.length)];
+                    updateAiResult(randomLoc);
+                    
+                    // Pan map to location
+                    map.flyTo([randomLoc.lat, randomLoc.lng], 11, { duration: 1.5 });
+                    
+                    // Reset button
+                    btnMatch.innerHTML = originalText;
+                    btnMatch.classList.remove('opacity-80');
+                }, 800);
+            });
+
+
+            // --- 3. Chart.js Initialization ---
+            
+            // Set defaults for dark theme
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = "'Pretendard', sans-serif";
+
+            // Chart 1: Venue Distribution (Bar)
+            // Data mock reflecting regional concentration in Gangwon
+            const ctxVenue = document.getElementById('venueChart').getContext('2d');
+            
+            // Gradient for bar
+            const gradientBlue = ctxVenue.createLinearGradient(0, 0, 0, 400);
+            gradientBlue.addColorStop(0, 'rgba(14, 165, 233, 0.8)'); // sky-500
+            gradientBlue.addColorStop(1, 'rgba(14, 165, 233, 0.1)');
+            
+            new Chart(ctxVenue, {
+                type: 'bar',
+                data: {
+                    labels: ['춘천시', '원주시', '강릉시', '속초시', '동해시', '태백시', '정선군', '영월군'],
+                    datasets: [{
+                        label: '등록공연장 수',
+                        data: [31, 25, 18, 7, 5, 2, 2, 1], // Simulated skewness
+                        backgroundColor: gradientBlue,
+                        borderColor: '#0ea5e9',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            padding: 10
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }
+                        },
+                        x: {
+                            grid: { display: false, drawBorder: false }
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Gas Safety Hazard Types (Doughnut)
+            // Extracted from CSV (가스누출경보기 등)
+            const ctxSafety = document.getElementById('safetyChart').getContext('2d');
+            new Chart(ctxSafety, {
+                type: 'doughnut',
+                data: {
+                    labels: [
+                        '가스누출경보기 미설치 (26.1%)',
+                        '검사품 사용 부적합 (15.2%)',
+                        '기밀성능 미흡 (10.7%)',
+                        '법정검사 미필 (10.1%)',
+                        '막음조치 미흡 (8.1%)',
+                        '기타 (29.8%)'
+                    ],
+                    datasets: [{
+                        data: [26.1, 15.2, 10.7, 10.1, 8.1, 29.8],
+                        backgroundColor: [
+                            '#f43f5e', // rose
+                            '#f59e0b', // amber
+                            '#10b981', // emerald
+                            '#3b82f6', // blue
+                            '#8b5cf6', // violet
+                            '#334155'  // slate (others)
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.raw}%`;
+                                }
+                            }
+                        }
+                    },
+                    layout: {
+                        padding: { left: 0, right: 20, top: 10, bottom: 10 }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
